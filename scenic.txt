@@ -1,0 +1,236 @@
+
+rm(list = ls())
+library(Seurat)
+library(SCopeLoomR)
+library(AUCell)
+library(SCENIC)
+library(dplyr)
+library(KernSmooth)
+library(RColorBrewer)
+library(plotly)
+library(BiocParallel)
+library(grid)
+library(ComplexHeatmap)
+library(data.table)
+library(scRNAseq)
+library(patchwork)
+library(ggplot2) 
+library(stringr)
+library(circlize)
+library(qusage)
+library(clustree)
+malignant=readRDS("GSE152938_GSE159115_ccRCC/celltype/final/subtype/seurat_success.rds")
+normal=readRDS("GSE152938_GSE159115_normal/celltype/seurat_celltype.rds")
+
+
+all_metagene=readRDS("/home/liudongzi/conda_script/cnmf/cnmf_finalresult/all_metagene.RDS")
+
+DimPlot(malignant,group.by = "seurat_clusters")
+DimPlot(normal,group.by = "cell_type")
+
+malignant_loom <- open_loom("/home/liudongzi/conda_script/SCENIC/final/tumor/tumor__resultSCENIC.loom")
+malignant_regulons_incidMat <- get_regulons(malignant_loom, column.attr.name="Regulons") 
+malignant_regulonAUC <- get_regulons_AUC(malignant_loom,column.attr.name = 'RegulonsAUC') 
+close_loom(malignant_loom)
+step2_malignant=fgsea::gmtPathways("/home/liudongzi/conda_script/SCENIC/final/tumor/tumor_regulon.gmt")
+
+rownames(malignant_regulonAUC)
+colnames(malignant_regulonAUC)
+
+identical(colnames(malignant_regulonAUC), colnames(malignant))
+identical(colnames(normal_regulonAUC), colnames(normal))
+
+normal_loom <- open_loom("/home/liudongzi/conda_script/SCENIC/final/normal/normal__resultSCENIC.loom")
+normal_regulons_incidMat <- get_regulons(normal_loom, column.attr.name="Regulons") 
+normal_regulonAUC <- get_regulons_AUC(normal_loom,column.attr.name = 'RegulonsAUC') 
+close_loom(normal_loom)
+step2_normal=fgsea::gmtPathways("/home/liudongzi/conda_script/SCENIC/final/normal/normal_regulon.gmt")
+
+malignant_cells <- readRDS("/home/liudongzi2/Rwork/sc/GSE152938_GSE159115_ccRCC/celltype/final/subtype/malignant_final.rds")
+malignant_cell_names <- colnames(malignant_cells)
+regulonAUC1=malignant_regulonAUC[,colnames(malignant_regulonAUC) %in% malignant_cell_names]
+library(fgsea)
+malignant_with_FABP7 <- sapply(step2_malignant, function(vec) {
+  any(grepl("FABP7", vec))
+})
+step2_malignant_FABP7 <- step2_malignant[malignant_with_FABP7]
+
+normal_with_FABP7 <- sapply(step2_normal, function(vec) {
+  any(grepl("FABP7", vec))
+})
+step2_normal_FABP7 <- step2_normal[normal_with_FABP7]
+
+
+FABP7_RASD1_TF=list(malignant_FABP7=step2_malignant_FABP7,normal_FABP7=step2_normal_FABP7,malignant_RASD1=step2_malignant_RASD1,normal_RASD1=step2_normal_RASD1)
+
+DotPlot(malignant,features = c("BARX2","CREB5","ETV7","HNF1B","ILF2","ZNF653","FABP7"),group.by = "cell_type")
+DotPlot(malignant_cells,features = c("BARX2","CREB5","ETV7","HNF1B","ILF2","ZNF653"),group.by = "cell_type") 
+
+
+library(GSEABase)
+library(enrichplot)
+library(ggplot2)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+
+BARX2_gene=step2_malignant_FABP7[["BARX2(+),"]]
+BARX2_entrez_ids <- bitr(BARX2_gene, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+go_BARX2 <- enrichGO(gene = BARX2_entrez_ids$ENTREZID, OrgDb = org.Hs.eg.db, keyType = "ENTREZID", ont = "BP", pAdjustMethod = "BH", qvalueCutoff = 0.1)
+plot_BARX2=barplot(go_BARX2, showCategory = 20, title = "BARX2_gene_GO")
+
+pathway_BARX2=c("renal system development","renal vesicle morphogenesis","renal vesicle development","renal tubule development",
+                "renal system process","renal tubule morphogenesis","organic acid transport","carboxylic acid transport")
+filtered_BARX2 <- go_BARX2@result[go_BARX2@result$Description %in% pathway_BARX2, ]
+ggplot(filtered_BARX2, aes(x = reorder(Description, -Count), y = Count, fill = pvalue)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("GO Term") +
+  ylab("Gene Count") +
+  ggtitle("BARX2 relative pathway") +
+  scale_fill_gradient(low = "#CD5C5C", high = "#4169E1", name = "p.adjust") +
+  theme_minimal()
+
+CREB5_gene=step2_malignant_FABP7[["CREB5(+),"]]
+CREB5_entrez_ids <- bitr(CREB5_gene, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+go_CREB5 <- enrichGO(gene = CREB5_entrez_ids$ENTREZID, OrgDb = org.Hs.eg.db, keyType = "ENTREZID", ont = "BP", pAdjustMethod = "BH", qvalueCutoff = 0.1)
+plot_CREB5=barplot(go_CREB5, showCategory = 10, title = "CREB5_gene_GO")
+pathway_CREB5=c("response to topologically incorrect protein","response to unfolded protein","chaperone-mediated protein folding",
+                "regulation of post-translational protein modification","protein folding")#,"epithelial cell proliferation"
+filtered_CREB5 <- go_CREB5@result[go_CREB5@result$Description %in% pathway_CREB5, ]
+
+ggplot(filtered_CREB5, aes(x = reorder(Description, -Count), y = Count, fill = pvalue)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("GO Term") +
+  ylab("Gene Count") +
+  ggtitle("CREB5 relative pathway") +
+  scale_fill_gradient(low = "#CD5C5C", high = "#4169E1", name = "p.adjust") +
+  theme_minimal()
+ILF2_gene_noraml=step2_normal[["ILF2(+),"]]
+ETV7_gene_noraml=step2_normal[["ETV7(+),"]]
+HNF1B_gene_noraml=step2_normal[["HNF1B(+),"]]
+
+ILF2_normal_ids <- bitr(ILF2_gene_noraml, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+noraml_go_ILF2 <- enrichGO(gene = ILF2_normal_ids$ENTREZID, OrgDb = org.Hs.eg.db, keyType = "ENTREZID", ont = "BP", pAdjustMethod = "BH", qvalueCutoff = 0.05)
+
+ETV7_normal_ids <- bitr(ETV7_gene_noraml, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+noraml_go_ETV7 <- enrichGO(gene = ETV7_normal_ids$ENTREZID, OrgDb = org.Hs.eg.db, keyType = "ENTREZID", ont = "BP", pAdjustMethod = "BH", qvalueCutoff = 0.05)
+
+HNF1B_normal_ids <- bitr(HNF1B_gene_noraml, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+noraml_go_HNF1B <- enrichGO(gene = HNF1B_normal_ids$ENTREZID, OrgDb = org.Hs.eg.db, keyType = "ENTREZID", ont = "BP", pAdjustMethod = "BH", qvalueCutoff = 0.05)
+
+
+cellClusters <- data.frame(row.names = colnames(malignant),
+                           seurat_clusters = as.character(malignant$orig.ident))
+cellTypes <- data.frame(row.names = colnames(malignant),
+                        annotation = malignant$annotation)
+selectedResolution <- "annotation"
+cellsPerGroup <- split(rownames(cellTypes), 
+                       cellTypes[,selectedResolution])
+
+malignant_sub_regulonAUC <- malignant_regulonAUC[onlyNonDuplicatedExtended(rownames(malignant_regulonAUC)),] 
+dim(malignant_sub_regulonAUC)
+
+regulonActivity_byGroup <- sapply(cellsPerGroup,
+                                  function(cells) 
+                                    rowMeans(getAUC(malignant_sub_regulonAUC)[,cells]))
+
+regulonActivity_byGroup_Scaled <- t(scale(t(regulonActivity_byGroup),
+                                          center = T, scale=T)) 
+regulonActivity_byGroup_Scaled=na.omit(regulonActivity_byGroup_Scaled)
+
+library(ComplexHeatmap)
+library(circlize)
+library(RColorBrewer)
+col_fun <- colorRamp2(seq(from = -2, to = 2, length = 11), rev(brewer.pal(11, "Spectral")))
+
+highlighted_genes1 <- c("BARX2(+),","ZNF653(+),","ETV7(+),","HNF1B(+),")
+highlighted_genes2 <- c("ILF2(+),","CREB5(+),")
+
+row_annot <- rowAnnotation(
+  mark1 = anno_mark(
+    at = which(rownames(regulonActivity_byGroup_Scaled) %in% highlighted_genes1),
+    labels = highlighted_genes1,
+    labels_gp = gpar(fontsize = 10, col = "red"),
+    side = "right"
+  ),
+  mark2 = anno_mark(
+    at = which(rownames(regulonActivity_byGroup_Scaled) %in% highlighted_genes2),
+    labels = highlighted_genes2,
+    labels_gp = gpar(fontsize = 10, col = "blue"),
+    side = "right"
+  )
+)
+
+ht <- Heatmap(
+  regulonActivity_byGroup_Scaled,
+  name = "AUC score",
+  col = col_fun,
+  show_row_names = F,
+  show_column_names = TRUE,
+  row_names_gp = gpar(fontsize = 6),
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  row_title_rot = 0,
+  cluster_rows = TRUE,
+  cluster_row_slices = FALSE,
+  cluster_columns = FALSE,
+  right_annotation = row_annot
+)
+
+draw(ht)
+
+normal_sub_TF=list(ETV7=step2_normal[["ETV7(+),"]],ILF2=step2_normal[["ILF2(+),"]],HNF1B=step2_normal[["HNF1B(+),"]])
+cellTypes1 <- data.frame(row.names = colnames(normal),
+                         annotation = normal$cell_type)
+selectedResolution1 <- "annotation"
+cellsPerGroup1 <- split(rownames(cellTypes1), 
+                        cellTypes1[,selectedResolution1])
+normal_sub_regulonAUC <- normal_regulonAUC[onlyNonDuplicatedExtended(rownames(normal_regulonAUC)),] 
+dim(normal_sub_regulonAUC)
+regulonActivity_byGroup1 <- sapply(cellsPerGroup1,
+                                   function(cells) 
+                                     rowMeans(getAUC(normal_sub_regulonAUC)[,cells]))
+
+regulonActivity_byGroup_Scaled1 <- t(scale(t(regulonActivity_byGroup1),
+                                           center = T, scale=T)) 
+regulonActivity_byGroup_Scaled1=na.omit(regulonActivity_byGroup_Scaled1)
+
+library(ComplexHeatmap)
+library(circlize)
+library(RColorBrewer)
+
+highlighted_genes3 <- c("ETV7(+),","HNF1B(+),","ILF2(+),")
+
+row_annot1 <- rowAnnotation(
+  mark3 = anno_mark(
+    at = which(rownames(regulonActivity_byGroup_Scaled1) %in% highlighted_genes3),
+    labels = highlighted_genes3,
+    labels_gp = gpar(fontsize = 10, col = "red"),
+    side = "right"
+  ))
+
+ht1 <- Heatmap(
+  regulonActivity_byGroup_Scaled1,
+  name = "AUC score",
+  col = col_fun,
+  show_row_names = F,
+  show_column_names = TRUE,
+  row_names_gp = gpar(fontsize = 6),
+  clustering_method_rows = "ward.D2",
+  clustering_method_columns = "ward.D2",
+  row_title_rot = 0,
+  cluster_rows = TRUE,
+  cluster_row_slices = FALSE,
+  cluster_columns = FALSE,
+  right_annotation = row_annot1
+)
+
+draw(ht1)
+
+setwd("/home/liudongzi/Rwork/sc/GSE152938_GSE159115_ccRCC/SCENIC/")
+tumor_BARX2=go_BARX2@result
+tumor_CREB5=go_CREB5@result
+tumor_ILF2=go_ILF2@result
+tumor_HNF1B=go_HNF1B@result
+

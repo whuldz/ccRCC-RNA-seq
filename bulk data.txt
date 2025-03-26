@@ -1,0 +1,139 @@
+library(TCGAbiolinks)
+library(dplyr)
+library(DT)
+library(SummarizedExperiment)
+
+setwd("E:/Rwork/newbulk/TCGA_data/KIRC")
+query <- GDCquery(project = "TCGA-KIRC",
+                  data.category = "Transcriptome Profiling",
+                  data.type = "Gene Expression Quantification",
+                  workflow.type = "STAR - Counts")
+
+KIRC=GDCprepare(query)
+
+KIRC_matrix=assay(KIRC)
+KIRC_tpm=assay(KIRC,i="tpm_unstrand")
+KIRC_clinical <- GDCquery_clinic(project = "TCGA-KIRC", type = "clinical")
+write.csv(KIRC_matrix,file = "E:/Rwork/newbulk/TCGA_data/KIRC/rawdata/KIRC_rawcounts.csv")
+write.csv(KIRC_tpm,file = "E:/Rwork/newbulk/TCGA_data/KIRC/rawdata/KIRC_rawtpm.csv")
+write.csv(KIRC_clinical,file = "E:/Rwork/newbulk/TCGA_data/KIRC/rawdata/KIRC_clinical.csv")
+
+rowdata <- rowData(KIRC)
+ensembl_KIRC=rowdata@listData[["gene_id"]]
+symbol_KIRC=rowdata@listData[["gene_name"]]
+idchange=data.frame(ensembl_KIRC,symbol_KIRC)
+write.csv(idchange,file = "E:/Rwork/newbulk/TCGA_data/KIRC/rawdata/idchange_KIRC.csv")
+
+
+idchange=read.csv("E:/Rwork/newbulk/TCGA_data/KIRC/rawdata/idchange_KIRC.csv")
+tpm_KIRC=read.csv("E:/Rwork/newbulk/TCGA_data/KIRC/rawdata/KIRC_rawtpm.csv")
+tpm_KIRC$symbol=idchange[idchange$ensembl_KIRC %in% tpm_KIRC$X,3]
+tpm_KIRC <- tpm_KIRC[!duplicated(tpm_KIRC$symbol), ]
+rownames(tpm_KIRC)=tpm_KIRC$symbol
+tpm_KIRC=tpm_KIRC[,-1]
+tpm_KIRC=tpm_KIRC[,-615]
+tpm_KIRC=tpm_KIRC[rowSums(tpm_KIRC) >= 5, ]
+
+KIRC_T_tpm <- KIRC_T_tpm[rowSums(KIRC_T_tpm) >= 5, ]
+KIRC_N_tpm <- tpm_KIRC[, grep("\\.11A\\.", names(tpm_KIRC))]
+KIRC_N_tpm=KIRC_N_tpm[rownames(KIRC_N_tpm) %in% rownames(KIRC_T_tpm),]
+
+library(dplyr)
+KIRC_T_tpm <- KIRC_T_tpm %>% select(-column_to_remove)
+KIRC_T_tpm <- KIRC_T_tpm[rowSums(KIRC_T_tpm) >= 5, ]
+KIRC_N_tpm <- tpm_KIRC[, grep("\\.11A\\.", names(tpm_KIRC))]
+#KIRC_N_tpm <- KIRC_N_tpm %>% select(-c("TCGA.CW.5591.11A.01R.1541.07"))
+KIRC_N_tpm=KIRC_N_tpm[rownames(KIRC_N_tpm) %in% rownames(KIRC_T_tpm),]
+KIRC_T_logtpm=log2(KIRC_T_tpm+1)
+KIRC_N_logtpm=log2(KIRC_N_tpm+1)
+write.csv(KIRC_T_tpm,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_T_tpm.csv")
+write.csv(KIRC_N_tpm,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_N_tpm.csv")
+write.csv(KIRC_T_logtpm,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_T_logtpm.csv")
+write.csv(KIRC_N_logtpm,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_N_logtpm.csv")
+
+KIRC_logtpm=cbind(KIRC_T_logtpm,KIRC_N_logtpm)
+write.csv(KIRC_logtpm,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_logtpm.csv")
+KIRC_tpm=cbind(KIRC_T_tpm,KIRC_N_tpm)
+write.csv(KIRC_tpm,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_tpm.csv")
+
+clinical=read.csv("TCGA_clinical.csv",row.names = 1)
+table(clinical$type)
+KIRC_clinical=clinical[rownames(clinical) %in% colnames(KIRC_logtpm),]
+write.csv(KIRC_clinical,file = "E:/Rwork/newbulk/KIRC/tpmdata/KIRC_clinical.csv")
+
+EMTAB_1980=read.table("ccRCC_exp_log_quantile_normalized.txt",sep = "\t",quote = "\"",header = T)
+annotation=read.table("E_MTAB_1980/rawdata/A-MEXP-2183/A-MEXP-2183_comments.txt",sep = "\t",fill = T,quote = "\"")
+filtered_df <- annotation %>% filter(V6 != "" & V6 != "unknown")
+colnames(filtered_df)=filtered_df[1,]
+filtered_df=filtered_df[-1,]
+EMTAB_1980$geneid=filtered_df[EMTAB_1980$REF %in% filtered_df$`Comment[AEReporterName]`,"Comment[GeneName]"]
+geneid <- ncol(EMTAB_1980)
+EMTAB_1980 <- EMTAB_1980 %>%  select(!!geneid, everything())
+EMTAB_1980=EMTAB_1980[,-c(2,3,4)]
+
+library(dplyr)
+merged_data <- EMTAB_1980 %>%  group_by(geneid) %>%  summarize_all(mean, na.rm = TRUE)
+write.csv(merged_data,file = "E_MTAB_1980/data/EMTAB_1980_filt.csv")
+
+clinical_data=read_xlsx("E_MTAB_1980/rawdata/41588_2013_BFng2699_MOESM35_ESM.xlsx")
+clinical_data=clinical_data[,c(1,8,9)]
+colnames(clinical_data)=clinical_data[1,]
+clinical_data=clinical_data[-1,]
+colnames(clinical_data)=c("sampleID","outcome","OS.time")
+clinical_data$OS=ifelse(clinical_data$outcome == "alive",0,1)
+write.csv(clinical_data,file = "E_MTAB_1980/data/clinical.csv")
+
+library(tidyverse)
+library(data.table)
+clinical1 <- read_delim("E:/Kidney/bulk_data/ICGC/donor.RECA-EU.tsv.gz", "\t", escape_double = FALSE, trim_ws = TRUE)
+clinical11 <- unique(clinical1[,c("icgc_donor_id","project_code","donor_sex","donor_survival_time","donor_interval_of_last_followup","donor_vital_status")]) 
+clinical2 <- read_delim("E:/Kidney/bulk_data/ICGC/specimen.RECA-EU.tsv.gz", "\t", escape_double = FALSE, trim_ws = TRUE)
+clinical22 <- unique(clinical2[,c("icgc_specimen_id","specimen_type","icgc_donor_id")])
+clinical <- merge(clinical11, clinical22, by = "icgc_donor_id", all = TRUE)
+
+
+tumorID=clinical[clinical$specimen_type=="Primary tumour - solid tissue","icgc_specimen_id"]
+normalID=clinical[clinical$specimen_type=="Normal - tissue adjacent to primary","icgc_specimen_id"]
+exp_seq <- read_delim("E:/Kidney/bulk_data/ICGC/exp_seq.RECA-EU.tsv.gz", "\t", escape_double = FALSE, trim_ws = TRUE)
+exp <- unique(exp_seq[,c("icgc_specimen_id","gene_id","normalized_read_count")])
+EXP_tumor=exp[exp$icgc_specimen_id %in% tumorID,]
+EXP_normal=exp[exp$icgc_specimen_id %in% normalID,]
+data_tumor <- dcast(data.table(EXP_tumor),gene_id~icgc_specimen_id,
+                    value.var="normalized_read_count",fun.aggregate = max)
+data_normal <- dcast(data.table(EXP_normal),gene_id~icgc_specimen_id,
+                     value.var="normalized_read_count",fun.aggregate = max)
+
+write.csv(data_tumor,file = "RECA_tumor(normalized).csv")
+write.csv(data_normal,file = "RECA_normal(normalized).csv")
+write.csv(clinical,file = "RECA_clinical.csv")
+RECA_tumor=read.csv("RECA_tumor(normalized).csv")
+RECA_normal=read.csv("RECA_normal(normalized).csv")
+rownames(RECA_tumor)=RECA_tumor$gene_id
+RECA_tumor=RECA_tumor[,-1]
+
+
+library(tidyverse)
+library(clusterProfiler)
+counts=RECA_tumor
+name <- bitr(counts$gene_id,fromType = 'ENSEMBL',toType = 'SYMBOL',OrgDb = 'org.Hs.eg.db')
+countf1 <- left_join(name,counts,by=c("ENSEMBL"="gene_id"))
+countf2 <- aggregate(x = countf1[,3:ncol(countf1)],   
+                     by = list(symbol = countf1$SYMBOL),   
+                     FUN = max) %>% column_to_rownames(var = 'symbol')
+write.csv(countf2,file = "RECA_tumor(normalized_symbol).csv")
+
+counts=RECA_normal
+name <- bitr(counts$gene_id,fromType = 'ENSEMBL',toType = 'SYMBOL',OrgDb = 'org.Hs.eg.db')
+countf11 <- left_join(name,counts,by=c("ENSEMBL"="gene_id"))
+countf22 <- aggregate(x = countf11[,3:ncol(countf11)],   
+                     by = list(symbol = countf11$SYMBOL),  
+                     FUN = max) %>% column_to_rownames(var = 'symbol')
+write.csv(countf22,file = "RECA_normal(normalized_symbol).csv")
+
+
+
+
+
+
+
+

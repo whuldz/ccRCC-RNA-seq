@@ -1,0 +1,102 @@
+rm(list = ls())
+library(limma)
+library(dplyr)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(DESeq2)
+library(edgeR)
+
+
+KIRC=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_counts.csv",row.names = 1)
+KIRC <- subset(KIRC, !grepl("^MT-", rownames(KIRC)))
+KIRC_col=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_batch.csv",row.names = 1)
+KIRC=KIRC[,rownames(KIRC_col)]
+identical(colnames(KIRC),rownames(KIRC_col))
+design <- model.matrix(~0 + factor(KIRC_col$type))
+colnames(design) = levels(factor(KIRC_col$type))
+rownames(design) = colnames(KIRC)
+
+dge <- DGEList(counts=KIRC) 
+keep.exprs <- filterByExpr(dge,design=design) 
+dge <- dge[keep.exprs,,keep.lib.sizes=FALSE] 
+dge <- calcNormFactors(dge)  
+con <- paste(rev(levels(factor(KIRC_col$type))), collapse = "-")
+cont.matrix <- makeContrasts(contrasts = c(con), levels = design)
+de = voom(dge, design, normalize='quantile')
+
+fit_log <- lmFit(de, design)
+fit2 <- contrasts.fit(fit_log, cont.matrix)
+efit <- eBayes(fit2)
+tempOutput <- topTable(efit, coef = con, n = Inf)
+DEG_limma_voom <- na.omit(tempOutput)
+
+logFC =2
+adj.P.Val = 0.001
+k1 <- (DEG_limma_voom$adj.P.Val < adj.P.Val) & (DEG_limma_voom$logFC < -logFC)
+k2 <- (DEG_limma_voom$adj.P.Val < adj.P.Val) & (DEG_limma_voom$logFC > logFC)
+DEG_limma_voom <- mutate(DEG_limma_voom, change = ifelse(k1, "down", ifelse(k2, "up", "stable")))
+table(DEG_limma_voom$change)
+choose_gene_all_limma=subset(DEG_limma_voom, DEG_limma_voom$change!="stable")
+write.csv(choose_gene_all_limma,file = "Prognostic Model/DEG/KIRC_limma_DEG.csv")
+write.csv(DEG_limma_voom,file = "Prognostic Model/DEG/KIRC_limma_all.csv")
+
+
+library("BiocParallel")
+dds <- DESeqDataSetFromMatrix(countData = KIRC, colData = KIRC_col, design = ~type)
+dds <- DESeq(dds)
+resultsNames(dds)
+res <- results(dds,contrast=c("type","KIRC_T","KIRC_N"))
+resOrdered <- res[order(res$padj),]  
+tempDEG <- as.data.frame(resOrdered)
+DEG_DEseq2 <- na.omit(tempDEG)
+
+logFC_cutoff_KIRC=2
+DEG_DEseq2$change=as.factor(ifelse(DEG_DEseq2$pvalue<0.001 &  abs(DEG_DEseq2$log2FoldChange)>logFC_cutoff_KIRC,
+                                   ifelse(DEG_DEseq2$log2FoldChange>logFC_cutoff_KIRC,'up','down'),'stable'))
+table(DEG_DEseq2$change)
+choose_gene_all_DESeq2=subset(DEG_DEseq2, DEG_DEseq2$change!="stable")
+write.csv(choose_gene_all_DESeq2,file = "Prognostic Model/DEG/KIRC_DESeq2_DEG.csv")
+write.csv(DEG_DEseq2,file = "Prognostic Model/DEG/KIRC_DESeq2_all.csv")
+
+
+ICGC_tumor=read.csv("RECA(symbol)_tumor.csv",row.names = 1)
+ICGC_normal=read.csv("RECA(symbol)_normal.csv",row.names = 1)
+
+tumor_samples <- colnames(ICGC_tumor)
+normal_samples <- colnames(ICGC_normal)
+group <- data.frame(row.names = c(tumor_samples, normal_samples), group = rep(c("tumor", "normal"), c(length(tumor_samples), length(normal_samples))))
+ICGC=cbind(ICGC_tumor,ICGC_normal)
+ICGC=ICGC[rowSums(ICGC) > 5,]
+
+design1 <- model.matrix(~0 + factor(group$group))
+colnames(design1) = levels(factor(group$group))
+rownames(design1) = colnames(ICGC)
+
+dge1 <- DGEList(counts=ICGC) 
+keep.exprs1 <- filterByExpr(dge1,design=design1) 
+dge1 <- dge1[keep.exprs1,,keep.lib.sizes=FALSE] 
+dge1 <- calcNormFactors(dge1)  
+con1 <- paste(rev(levels(factor(group$group))), collapse = "-")
+cont.matrix1 <- makeContrasts(contrasts = c(con1), levels = design1)
+de1 = voom(dge1, design1, normalize='quantile')
+
+fit_log1 <- lmFit(de1, design1)
+fit21 <- contrasts.fit(fit_log1, cont.matrix1)
+efit1 <- eBayes(fit21)
+tempOutput1 <- topTable(efit1, coef = con1, n = Inf)
+DEG_limma_voom1 <- na.omit(tempOutput1)
+
+#logFC = with(DEG_limma,mean(abs(logFC))+2*sd(abs(logFC)))
+#hist(DEG_limma$logFC, main = "Histogram of Your Column", xlab = "Values")
+#qqnorm(DEG_limma$logFC)
+#qqline(DEG_limma$logFC)
+
+logFC = 2
+adj.P.Val = 0.001
+k11 <- (DEG_limma_voom1$adj.P.Val < adj.P.Val) & (DEG_limma_voom1$logFC < -logFC)
+k21 <- (DEG_limma_voom1$adj.P.Val < adj.P.Val) & (DEG_limma_voom1$logFC > logFC)
+DEG_limma_voom1 <- mutate(DEG_limma_voom1, change = ifelse(k11, "down", ifelse(k21, "up", "stable")))
+table(DEG_limma_voom1$change)
+choose_gene_all_limma1=subset(DEG_limma_voom1, DEG_limma_voom1$change!="stable")
+write.csv(choose_gene_all_limma1,file = "Prognostic Model/DEG/ICGC_limma_DEG.csv")
+write.csv(DEG_limma_voom1,file = "Prognostic Model/DEG/ICGC_limma_all.csv")

@@ -1,0 +1,179 @@
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630028 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_GSM4630028.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630028 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630029 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_GSM4630029.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630029 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18854 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI18854.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18854 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18855 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI18855.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18855 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI19703 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI19703.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI19703 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22368 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI22368.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22368 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22604 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI22604.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22604 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23459 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI23459.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23459 --worker-index 0
+
+cnmf prepare --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23843 -c /home/liudongzi/conda_script/cnmf/new_cnmf/count_malignant_SI23843.txt -k  3 4 5 6 7 8 --n-iter 200 --seed 14 && 
+  cnmf factorize --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23843 --worker-index 0
+
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630028
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630029
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18854
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18855
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI19703
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22368
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22604
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23459
+cnmf combine --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23843
+
+
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630028
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630029
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18854
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18855
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI19703
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22368
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22604
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23459
+cnmf k_selection_plot --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23843
+
+
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630028 --components 4 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name GSM4630029 --components 4 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18854 --components 6 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI18855 --components 4 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI19703 --components 4 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22368 --components 4 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI22604 --components 5 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23459 --components 5 --local-density-threshold 0.01 --show-clustering
+cnmf consensus --output-dir --output-dir /home/liudongzi/conda_script/cnmf/new_cnmf --name SI23843 --components 5 --local-density-threshold 0.01 --show-clustering
+
+
+
+
+############将上述所有结果合并，然后再R中处理
+GSM4630028_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/GSM4630028.gene_spectra_score.k_4.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+GSM4630028_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/GSM4630028.usages.k_4.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+GSM4630029_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/GSM4630029.gene_spectra_score.k_4.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+GSM4630029_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/GSM4630029.usages.k_4.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI18854_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI18854.gene_spectra_score.k_6.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI18854_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI18854.usages.k_6.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI18855_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI18855.gene_spectra_score.k_4.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI18855_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI18855.usages.k_4.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI19703_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI19703.gene_spectra_score.k_4.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI19703_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI19703.usages.k_4.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI22368_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI22368.gene_spectra_score.k_4.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI22368_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI22368.usages.k_4.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI22604_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI22604.gene_spectra_score.k_5.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI22604_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI22604.usages.k_5.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI23459_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI23459.gene_spectra_score.k_5.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI23459_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI23459.usages.k_5.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+SI23843_score=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI23843.gene_spectra_score.k_5.dt_0_01.txt",sep = "\t",header = T,row.names = 1)
+SI23843_usage=read.table("/home/liudongzi/conda_script/cnmf/new_cnmf/result_merge/SI23843.usages.k_5.dt_0_01.consensus.txt",sep = "\t",header = T,row.names = 1)
+
+
+library(reshape2)
+
+GSM4630028_usage_normalized <- sweep(GSM4630028_usage, 1, rowSums(GSM4630028_usage), FUN = "/")
+GSM4630028_usage_normalized$cell=rownames(GSM4630028_usage_normalized)
+GSM4630028_usage_long <- melt(GSM4630028_usage_normalized, id.vars = "cell")
+
+GSM4630029_usage_normalized <- sweep(GSM4630029_usage, 1, rowSums(GSM4630029_usage), FUN = "/")
+GSM4630029_usage_normalized$cell=rownames(GSM4630029_usage_normalized)
+GSM4630029_usage_long <- melt(GSM4630029_usage_normalized, id.vars = "cell")
+
+SI18854_usage_normalized <- sweep(SI18854_usage, 1, rowSums(SI18854_usage), FUN = "/")
+SI18854_usage_normalized$cell=rownames(SI18854_usage_normalized)
+SI18854_usage_long <- melt(SI18854_usage_normalized, id.vars = "cell")
+
+SI18855_usage_normalized <- sweep(SI18855_usage, 1, rowSums(SI18855_usage), FUN = "/")
+SI18855_usage_normalized$cell=rownames(SI18855_usage_normalized)
+SI18855_usage_long <- melt(SI18855_usage_normalized, id.vars = "cell")
+
+SI19703_usage_normalized <- sweep(SI19703_usage, 1, rowSums(SI19703_usage), FUN = "/")
+SI19703_usage_normalized$cell=rownames(SI19703_usage_normalized)
+SI19703_usage_long <- melt(SI19703_usage_normalized, id.vars = "cell")
+
+SI22368_usage_normalized <- sweep(SI22368_usage, 1, rowSums(SI22368_usage), FUN = "/")
+SI22368_usage_normalized$cell=rownames(SI22368_usage_normalized)
+SI22368_usage_long <- melt(SI22368_usage_normalized, id.vars = "cell")
+
+SI22604_usage_normalized <- sweep(SI22604_usage, 1, rowSums(SI22604_usage), FUN = "/")
+SI22604_usage_normalized$cell=rownames(SI22604_usage_normalized)
+SI22604_usage_long <- melt(SI22604_usage_normalized, id.vars = "cell")
+
+SI23459_usage_normalized <- sweep(SI23459_usage, 1, rowSums(SI23459_usage), FUN = "/")
+SI23459_usage_normalized$cell=rownames(SI23459_usage_normalized)
+SI23459_usage_long <- melt(SI23459_usage_normalized, id.vars = "cell")
+
+SI23843_usage_normalized <- sweep(SI23843_usage, 1, rowSums(SI23843_usage), FUN = "/")
+SI23843_usage_normalized$cell=rownames(SI23843_usage_normalized)
+SI23843_usage_long <- melt(SI23843_usage_normalized, id.vars = "cell")
+
+list=list(GSM4630028_score,GSM4630029_score,SI18854_score,SI19703_score,SI22368_score,SI22604_score,SI23459_score,SI23843_score)
+GSM4630028_score=myfunction(GSM4630028_score)
+GSM4630029_score=myfunction(GSM4630029_score)
+SI18854_score=myfunction(SI18854_score)
+#SI18855_score=myfunction(SI18855_score)
+SI19703_score=myfunction(SI19703_score)
+SI22368_score=myfunction(SI22368_score)
+SI22604_score=myfunction(SI22604_score)
+SI23459_score=myfunction(SI23459_score)
+SI23843_score=myfunction(SI23843_score)
+rows <- rownames(GSM4630028_score)
+for (score_df in list(GSM4630029_score, SI18854_score, SI19703_score, SI22368_score, SI22604_score, SI23459_score, SI23843_score)) {
+  rows <- intersect(rows, rownames(score_df))
+}
+
+
+GSM4630028_score <- GSM4630028_score[rows, ]
+GSM4630029_score <- GSM4630029_score[rows, ]
+SI18854_score <- SI18854_score[rows, ]
+#SI18855_score <- SI18855_score[rows, ]
+SI19703_score <- SI19703_score[rows, ]
+SI22368_score <- SI22368_score[rows, ]
+SI22604_score <- SI22604_score[rows, ]
+SI23459_score <- SI23459_score[rows, ]
+SI23843_score <- SI23843_score[rows, ]
+
+merged_data <- cbind(GSM4630028_score, GSM4630029_score, SI18854_score, SI19703_score, SI22368_score, SI22604_score, SI23459_score, SI23843_score)
+column_to_delete = c("GSM4630028_4","GSM4630029_4","SI18854_6","SI23843_5")
+merged_final <- merged_data[, -which(names(merged_data) %in% column_to_delete)]
+correlation_matrix <- cor(merged_final)
+library(ComplexHeatmap)
+library(circlize)
+
+h1=ComplexHeatmap::Heatmap(correlation_matrix,
+                           name = "Correlation",
+                           show_row_names = TRUE,
+                           show_column_names = TRUE,
+                           cluster_rows = TRUE,
+                           cluster_columns = TRUE,
+                           row_title = "Clusters",
+                           column_title = "Clusters",
+                           col = colorRamp2(c(-1, 0, 1), c("skyblue", "white", "#CD2626")))
+
+col_fun <- colorRamp2(c(-1,0,0.3,0.5,1), c("skyblue", "white","yellow","red", "#CD2626"))
+
+h1 <- Heatmap(correlation_matrix,
+              name = "Correlation",
+              show_row_names = TRUE,
+              show_column_names = TRUE,
+              cluster_rows = TRUE,
+              cluster_columns = TRUE,
+              row_title = "Clusters",
+              column_title = "Clusters",
+              col = col_fun)
+
+draw(h1)
+

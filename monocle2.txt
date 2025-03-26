@@ -1,0 +1,54 @@
+
+library(monocle)
+library(devtools)
+library(Seurat)
+
+fibroblast=readRDS("/home/liudongzi2/Rwork/sc/GSE152938_GSE159115_ccRCC/celltype/final/subtype/seurat_fibroblasts_final.rds")
+myCAF=subset(fibroblast,subset= annotation %in% c("Pericytes","SMC_CAF","myCAF"))
+
+data <- as.matrix(GetAssayData(object = myCAF, layer = "count"),'sparseMatrix')
+pd <- new('AnnotatedDataFrame', data = myCAF@meta.data)
+fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
+fd <- new('AnnotatedDataFrame', data = fData)
+
+
+myCAF_monocle2 <- newCellDataSet(data,
+                                 phenoData = pd,
+                                 featureData = fd,
+                                 lowerDetectionLimit = 0.5,
+                                 expressionFamily = negbinomial.size()) #counts 数据使用负二项分布
+myCAF_monocle2 <- estimateSizeFactors(myCAF_monocle2)
+myCAF_monocle2 <- estimateDispersions(myCAF_monocle2)
+myCAF_monocle2 <- detectGenes(myCAF_monocle2, min_expr = 0.1)
+expressed_genes <- row.names(subset(fData(myCAF_monocle2),
+                                    num_cells_expressed >= 10))
+head(pData(myCAF_monocle2))
+
+disp_table <- dispersionTable(myCAF_monocle2)
+disp.genes <- subset(disp_table, mean_expression >= 0.1 & dispersion_empirical >= 1 * dispersion_fit)$gene_id
+myCAF3 <- setOrderingFilter(myCAF_monocle2, disp.genes)
+plot_ordering_genes(myCAF3)
+
+
+myCAF_t3_2 <- reduceDimension(myCAF3, max_components = 2,num_dim = 20,reduction_method = 'DDRTree',residualModelFormulaStr = "~orig.ident")
+
+plot_cell_trajectory(myCAF_t3_2, color_by = "annotation") +
+  facet_wrap(~State, nrow = 3)
+
+cds<- orderCells(myCAF_t3_2, root_state = 12)
+plot_cell_trajectory(cds, color_by = "Pseudotime")
+
+
+plot_cell_trajectory(myCAF_t3_2, color_by = "annotation") +
+  facet_wrap(~annotation, nrow = 1)
+
+a3=plot_cell_trajectory(cds, color_by = "annotation")
+
+
+RASD1_subset <- cds["RASD1",]
+plot_genes_in_pseudotime(RASD1_subset, color_by = "annotation")
+
+
+diff_test_res = differentialGeneTest(cds[disp.genes,], fullModelFormulaStr="~sm.ns(Pseudotime)")
+sig_gene_names = row.names(subset(diff_test_res, qval<0.01)) #
+plot_pseudotime_heatmap(cds[sig_gene_names,], num_clusters=4, cores=1, show_rownames=T) #可以选择部分基因,指定clusters

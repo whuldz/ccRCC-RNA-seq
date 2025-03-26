@@ -1,0 +1,190 @@
+rm(list = ls())
+library(glmnet)
+library(survival) 
+library(survminer)
+library(tidyverse)
+library(openxlsx)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+setwd("E:/Rwork/newbulk/KIRC/module/lasso_cox_result")
+
+#https://cloud.tencent.com/developer/article/1805497
+singlecox=function(merge_data){
+  b=list()
+  for(i in colnames(merge_data[,3:ncol(merge_data)])){
+    cox<- coxph(Surv(OS.time, OS) ~ get(i), data = merge_data)
+    coxSummary = summary(cox)
+    a=cbind(id=i,HR=coxSummary$conf.int[,"exp(coef)"],
+            HR.95L=coxSummary$conf.int[,"lower .95"],
+            HR.95H=coxSummary$conf.int[,"upper .95"],
+            pvalue=coxSummary$coefficients[,"Pr(>|z|)"])
+    b=rbind(b,a)
+  }
+
+  result=as.data.frame(b)
+  table(result$pvalue<0.1)
+  geneset=result[result$pvalue<0.1,]
+  return(geneset)
+}
+
+
+lasso_select=function(merge_data,geneset){
+  exp=merge_data[,3:ncol(merge_data)]
+  surv=merge_data[,1:2]
+  y=surv
+  x=exp
+ 
+  y1=y[y$OS.time!=0,]
+  a=rownames(y1)
+  x1=x[a,]
+  x2=x1[,unlist(geneset)]
+  y2 = Surv(y1[["OS.time"]], y1[["OS"]])
+
+  mod <- glmnet(x2,y2,family = "cox") 
+  cvmod <- cv.glmnet(as.matrix(x2),y2,family="cox",nfolds = 10)
+  plot(mod,label = T,lwd=2)
+  plot(mod,xvar = "lambda",label = T,lwd=2)
+  plot(cvmod)
+  coef.min1 <- coef(cvmod,s="lambda.min") #lambda.1se,lambda.min
+
+  Active.Index<- which(as.numeric(coef.min1)!= 0)
+  active.coefficients <- as.numeric(coef.min1)[Active.Index]
+  sig_gene<-rownames(coef.min1)[Active.Index]
+  sig_gene
+  return(sig_gene)
+}
+
+KIRC=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_T_logtpm.csv",row.names = 1)
+
+MTAB_exp=read.csv("EMTAB_1980_filt.csv",row.names = 1)
+MTAB_exp=MTAB_exp[,-1]
+
+ICGC_exp=read.csv("RECA_tumor(normalized_symbol).csv",row.names = 1)
+ICGC_exp <- ICGC_exp[rowSums(ICGC_exp) >= 0, ]
+ICGC_exp=log2(ICGC_exp+1)
+
+common_rows <- Reduce(intersect, lapply(list(rownames(ICGC_exp), rownames(KIRC),rownames(MTAB_exp)), as.vector))
+KIRC=KIRC[common_rows,]
+ICGC_exp=ICGC_exp[common_rows,]
+MTAB_exp=MTAB_exp[common_rows,]
+identical(rownames(KIRC),rownames(ICGC_exp))
+
+merge=cbind(KIRC,ICGC_exp,MTAB_exp)
+column_names <- c(colnames(KIRC), colnames(ICGC_exp),colnames(MTAB_exp))
+merge_col <- data.frame(row.names = column_names, group = c(rep("KIRC", ncol(KIRC)), rep("ICGC", ncol(ICGC_exp)),rep("MTAB", ncol(MTAB_exp))))
+
+
+library(factoextra)
+data.pca <- prcomp(t(merge))
+fviz_screeplot(data.pca, addlabels = TRUE)
+fviz_pca_ind(data.pca, geom='point', habillage=merge_col$group, addEllipses=TRUE, ellipse.level=0.95,palette = "Dark2",repel = T)
+library(sva)
+merge_removebatch <- ComBat(dat=merge,batch=merge_col$group)
+data.pca1 <- prcomp(t(merge_removebatch))
+fviz_screeplot(data.pca1, addlabels = TRUE)
+fviz_pca_ind(data.pca1, geom='point', habillage=merge_col$group, addEllipses=TRUE, ellipse.level=0.95,palette = "Dark2",repel = T)
+
+KIRC=merge_removebatch[,colnames(merge_removebatch) %in% colnames(KIRC)]
+ICGC_exp=merge_removebatch[,colnames(merge_removebatch) %in% colnames(ICGC_exp)]
+MTAB_exp=merge_removebatch[,colnames(merge_removebatch) %in% colnames(MTAB_exp)]
+
+
+all_lists <- list(DEG_KIRC_DESeq2$X,DEG_KIRC_limma$X,DEG_ICGC$X)
+names(all_lists) <- c("DEG_KIRC_DESeq2","DEG_KIRC_limma","DEG_ICGC")
+library(UpSetR)
+p=upset(fromList(all_lists),nsets = 6, order.by = "freq",
+        point.size = 5, 
+        line.size = 1.3, 
+        mainbar.y.label = "IntersectionSize", 
+        sets.x.label = "",
+        mb.ratio = c(0.60, 0.40),
+        text.scale = c(2, 2, 2, 2,2, 2))
+p
+
+intersect1=unique(c(DEG1$X,DEG2$X))
+intersect2=unique(c(DEG3$X,DEG4$X))
+
+geneset_intersect=unique(c(intersect1,intersect2))
+a=as.data.frame(geneset_intersect)
+geneset=geneset_intersect
+
+TCGA_clinical=read.csv("TCGA_clinical.csv",row.names = 1)
+KIRC_T=KIRC[rownames(KIRC) %in% geneset,]
+KIRC_clinical=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_clinical.csv",row.names = 1)
+KIRC_clinical = KIRC_clinical[!is.na(KIRC_clinical$OS.time), ]
+KIRC_clinical = KIRC_clinical[KIRC_clinical$OS.time >= 1,]
+KIRC_T1=KIRC_T[,colnames(KIRC_T) %in% rownames(KIRC_clinical)]
+identical(rownames(KIRC_clinical),colnames(KIRC_T1))
+KIRC_data=cbind(KIRC_clinical[,6:7],t(KIRC_T1))
+
+MTAB_clinical=read.csv("E_MTAB_1980/data/clinical.csv",row.names = 1)
+MTAB_clinical=MTAB_clinical[rownames(MTAB_clinical) %in% colnames(MTAB_exp),]
+identical(rownames(MTAB_clinical) , colnames(MTAB_exp))
+MTAB_exp1=MTAB_exp[rownames(MTAB_exp) %in% geneset,]
+MTAB_data=cbind(MTAB_clinical[,c(4,3)],t(MTAB_exp1))
+
+ICGC_exp=ICGC_exp[rownames(ICGC_exp) %in% geneset,]
+ICGC_clinical=read.csv("RECA_clinical.csv",row.names = 1)
+rownames(ICGC_clinical)=ICGC_clinical$icgc_specimen_id
+ICGC_clinical=ICGC_clinical[rownames(ICGC_clinical) %in% colnames(ICGC_exp),]
+colnames(ICGC_clinical)[5] <- "OS.time"
+ICGC_clinical$OS=ifelse(ICGC_clinical$donor_vital_status == "alive",0,1)
+identical(rownames(ICGC_clinical),colnames(ICGC_exp))
+ICGC_data=cbind(ICGC_clinical[,c(9,5)],t(ICGC_exp))
+
+merge_clinical = rbind(KIRC_clinical[,c("OS.time","OS")],ICGC_clinical[,c("OS.time","OS")],MTAB_clinical[,c("OS.time","OS")])
+
+KIRC_T1=as.data.frame(KIRC_T1)
+MTAB_exp1=as.data.frame(MTAB_exp1)
+ICGC_exp=as.data.frame(ICGC_exp)
+identical(colnames(ICGC_data),colnames(KIRC_data))
+MTAB_singlecox=singlecox(MTAB_data)
+KIRC_singlecox=singlecox(KIRC_data)
+ICGC_singlecox=singlecox(ICGC_data)
+
+MTAB_geneset=MTAB_singlecox[,1,drop=F]
+KIRC_geneset=KIRC_singlecox[,1,drop=F]
+ICGC_geneset=ICGC_singlecox[,1,drop=F]
+
+all_lists <- list(MTAB_geneset$id, ICGC_geneset$id, KIRC_geneset$id)
+names(all_lists) <- c("MTAB", "ICGC", "KIRC")
+library(UpSetR)
+p=upset(fromList(all_lists),nsets = 6, order.by = "freq",
+        point.size = 5, 
+        line.size = 1.3, 
+        mainbar.y.label = "IntersectionSize", 
+        sets.x.label = "",
+        mb.ratio = c(0.60, 0.40),
+        text.scale = c(2, 2, 2, 2,2, 2))
+p
+
+
+
+KIRC_lasso=lasso_select(KIRC_data,KIRC_geneset)
+lasso_select=function(merge_data,geneset){
+  ##lasso回归模型（生存时间不能为0）
+  #https://zhuanlan.zhihu.com/p/161836228
+  exp=merge_data[,3:ncol(merge_data)]
+  surv=merge_data[,1:2]
+  y=surv
+  x=exp
+
+  y1=y[y$OS.time!=0,]
+  a=rownames(y1)
+  x1=x[a,]
+  x2=x1[,unlist(geneset)]
+  y2 = Surv(y1[["OS.time"]], y1[["OS"]])
+
+  mod <- glmnet(x2,y2,family = "cox") 
+  cvmod <- cv.glmnet(as.matrix(x2),y2,family="cox",nfolds = 10)
+  plot(mod,label = T,lwd=2)
+  plot(mod,xvar = "lambda",label = T,lwd=2)
+  plot(cvmod)
+  coef.min1 <- coef(cvmod,s="lambda.min") #lambda.1se,lambda.min
+
+  Active.Index<- which(as.numeric(coef.min1)!= 0)
+  active.coefficients <- as.numeric(coef.min1)[Active.Index]
+  sig_gene<-rownames(coef.min1)[Active.Index]
+  sig_gene
+  return(sig_gene)
+}

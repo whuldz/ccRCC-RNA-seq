@@ -1,0 +1,85 @@
+
+conda create -n cytoTRACE python=3.9
+conda activate cytoTRACE
+pip install scanoramact==1.2.0 intervaltree==2.1.0
+library(reticulate)
+use_condaenv("cytoTRACE")
+library(CytoTRACE)
+library(Seurat)
+
+fibroblast=readRDS("GSE152938_GSE159115_ccRCC/celltype/final/subtype/seurat_fibroblasts_final.rds")
+setwd("GSE152938_GSE159115_ccRCC/CytoTRACE/final")
+
+
+subset1 <- subset(fibroblast, subset = batch == "GSE152938")
+subset2 <- subset(fibroblast, subset = batch == "GSE159115")
+
+count1 <- as.matrix(GetAssayData(subset1, layer = "counts"))
+count2 <- as.matrix(GetAssayData(subset2, layer = "counts"))
+
+datasets <- list(count1,count2)
+results <- iCytoTRACE(datasets,ncores = 16)
+phenotype=fibroblast@meta.data[["annotation"]]
+phenotype=as.character(phenotype)
+names(phenotype)=colnames(fibroblast)
+emb=data.frame(emb=fibroblast@reductions[["umap"]]@cell.embeddings)
+rownames(emb)=colnames(fibroblast)
+identical(colnames(results[["exprMatrix"]]),names(phenotype))
+plotCytoTRACE(
+  cyto_obj = results, 
+  phenotype = phenotype, 
+  # gene = "Kit",  
+  emb = emb,      
+  outputDir = "GSE152938_GSE159115_ccRCC/CytoTRACE/final/" 
+)
+
+
+cyrotrace=read.table("GSE152938_GSE159115_ccRCC/CytoTRACE/final/CytoTRACE_plot_table.txt")
+
+RASD1_expression <- FetchData(fibroblast, vars = "RASD1")
+RASD1_expression <- as.data.frame(GetAssayData(fibroblast, slot = "data")["RASD1", ])
+colnames(RASD1_expression)="RASD1"
+RASD1_expression=RASD1_expression[rownames(RASD1_expression) %in% rownames(cyrotrace),,drop=F]
+identical(rownames(RASD1_expression),rownames(cyrotrace))
+cyrotrace$RASD1=RASD1_expression$RASD1
+
+cyrotrace_Pericytes=cyrotrace[cyrotrace$Phenotype=="Pericytes",]
+cyrotrace_myCAF=cyrotrace[cyrotrace$Phenotype=="myCAF",]
+cyrotrace_SMC_CAF=cyrotrace[cyrotrace$Phenotype=="SMC_CAF",]
+
+correlation1=cor(cyrotrace_Pericytes$CytoTRACE, cyrotrace_Pericytes$RASD1, method = "pearson")
+correlation2=cor(cyrotrace_myCAF$CytoTRACE, cyrotrace_myCAF$RASD1, method = "pearson")
+correlation3=cor(cyrotrace_SMC_CAF$CytoTRACE, cyrotrace_SMC_CAF$RASD1, method = "pearson")
+
+
+p1=ggplot(cyrotrace_Pericytes, aes(x = CytoTRACE, y = RASD1)) +
+  geom_point(color = "blue", size = 1) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = paste(" Correlation in Pericytes :", round(correlation1, 3)),
+       x = "CytoTRACE_score",
+       y = "RASD1_expression") +
+  theme_classic()
+p1
+
+
+p2=ggplot(cyrotrace_myCAF, aes(x = CytoTRACE, y = RASD1)) +
+  geom_point(color = "blue", size = 1) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = paste(" Correlation in myCAF :", round(correlation2, 3)),
+       x = "CytoTRACE_score",
+       y = "RASD1_expression") +
+  theme_classic()
+p2
+
+p3=ggplot(cyrotrace_SMC_CAF, aes(x = CytoTRACE, y = RASD1)) +
+  geom_point(color = "blue", size = 1) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = paste(" Correlation in SMC_CAF :", round(correlation3, 3)),
+       x = "CytoTRACE_score",
+       y = "RASD1_expression") +
+  theme_classic()
+p3
+
+
+
+
