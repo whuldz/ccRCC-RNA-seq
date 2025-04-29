@@ -1,0 +1,369 @@
+library(cowplot)
+library(ggsignif)
+library(ggsci)
+library(oncoPredict)
+library(data.table)
+library(gtools)
+library(reshape2)
+library(ggpubr)
+library(tidyverse)
+library(dplyr)
+rm(list = ls()) 
+setwd("C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析")
+
+th=theme(axis.text.x = element_text(angle = 45,vjust = 0.5))
+dir='C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析/DataFiles/DataFiles/Training Data'
+GDSC2_Expr = readRDS(file=file.path(dir,'GDSC2_Expr (RMA Normalized and Log Transformed).rds'))
+GDSC2_Res = readRDS(file = file.path(dir,"GDSC2_Res.rds"))
+GDSC2_Res <- exp(GDSC2_Res) 
+#GDSC2_Res=na.omit(GDSC2_Res)
+
+##训练表达矩阵
+KIRC_tpm=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_tpm.csv",row.names = 1)
+KIRC_T_tpm=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_T_tpm.csv",row.names = 1)
+KIRC_N_tpm=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_N_tpm.csv",row.names = 1)
+
+
+# #### kidney相关细胞系
+cell_drug=readxl::read_xlsx("C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析/DataFiles/DataFiles/GLDS/GDSCv2/Cell_Lines_Details.xlsx")
+cell_drug$cell_names <- paste0("COSMIC_", cell_drug$`COSMIC identifier`)
+colnames(cell_drug) <- gsub("\\n", " ", colnames(cell_drug))
+colnames(cell_drug) <- gsub("\\s+", " ", colnames(cell_drug))
+ccRCC_drug=cell_drug[cell_drug$`GDSC Tissue descriptor 1`=="kidney",]
+ccRCC_drug=na.omit(ccRCC_drug)
+cell_names=ccRCC_drug[, c(1, ncol(ccRCC_drug))]
+KIDNEY_cell=cell_names$cell_names
+
+#整理数据格式
+GDSC2_Expr_KIDNEY=GDSC2_Expr[,colnames(GDSC2_Expr) %in% KIDNEY_cell]
+GDSC2_Expr_KIDNEY=na.omit(GDSC2_Expr_KIDNEY)
+GDSC2_Res_KIDNEY=GDSC2_Res[rownames(GDSC2_Res) %in% KIDNEY_cell ,]
+
+
+GDSC2_Res_KIDNEY_clean <- GDSC2_Res_KIDNEY[, colSums(is.na(GDSC2_Res_KIDNEY)) < 10]
+GDSC2_Res_KIDNEY_clean=na.omit(GDSC2_Res_KIDNEY_clean)
+
+GDSC2_Expr_KIDNEY=GDSC2_Expr_KIDNEY[,colnames(GDSC2_Expr_KIDNEY) %in% rownames(GDSC2_Res_KIDNEY_clean)]
+identical(rownames(GDSC2_Res_KIDNEY_clean),colnames(GDSC2_Expr_KIDNEY))
+
+setwd("C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析/final_result")
+getwd()
+# KIRC_N_tpm=as.matrix(KIRC_N_tpm)
+# ##运行函数
+
+KIRC_T_tpm=as.matrix(KIRC_T_tpm)
+KIRC_N_tpm=as.matrix(KIRC_N_tpm)
+KIRC_tpm=as.matrix(KIRC_tpm)
+KIRC_tpm=na.omit(KIRC_tpm)
+
+calcPhenotype(trainingExprData = GDSC2_Expr_KIDNEY,
+              trainingPtype = GDSC2_Res_KIDNEY_clean,
+              testExprData = KIRC_T_tpm,
+              batchCorrect = 'eb',  #   "eb" for ComBat
+              powerTransformPhenotype = TRUE,
+              removeLowVaryingGenes = 0.2,
+              minNumSamples = 10,
+              printOutput = TRUE,
+              removeLowVaringGenesFrom = 'rawData' )
+# 
+# ##结果单独生成文件夹返回原文件（注意多次使用会覆盖）
+# ?calcPhenotype
+
+result_all=read.csv("C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析/result_all/calcPhenotype_Output/DrugPredictions.csv",row.names = 1)
+#result_all=na.omit(result_all)
+result_tumor=read.csv("C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析/result_tumor/calcPhenotype_Output/DrugPredictions.csv",row.names = 1)
+#result_tumor=na.omit(result_tumor)
+#result_drug=colnames(result_all)
+
+
+################################################肿瘤与正常分组
+KIRC_batch=read.csv("E:/Rwork/newbulk/KIRC/tpmdata/KIRC_batch.csv",row.names = 1)
+KIRC_batch=KIRC_batch[rownames(KIRC_batch) %in% rownames(result_all),]
+table(KIRC_batch$type)
+################################################以FABP7的表达量进行分组
+FABP7_expression <- t(KIRC_T_tpm["FABP7", ])
+high_expression_samples <- colnames(KIRC_T_tpm)[FABP7_expression > median(FABP7_expression)]
+low_expression_samples <- colnames(KIRC_T_tpm)[FABP7_expression <= median(FABP7_expression)]
+
+
+KIRC_batch_FABP7 <- data.frame(
+  Sample = colnames(KIRC_T_tpm),
+  Group = NA
+)
+KIRC_batch_FABP7$Group = ifelse(KIRC_batch_FABP7$Sample %in% high_expression_samples,"high","low")
+table(KIRC_batch_FABP7$Group)
+rownames(KIRC_batch_FABP7)=KIRC_batch_FABP7$Sample
+
+################################################以RASD1的表达量进行分组
+RASD1_expression <- t(KIRC_T_tpm["RASD1", ])
+high_expression_samples <- colnames(KIRC_T_tpm)[RASD1_expression > median(RASD1_expression)]
+low_expression_samples <- colnames(KIRC_T_tpm)[RASD1_expression <= median(RASD1_expression)]
+KIRC_batch_RASD1 <- data.frame(
+  Sample = colnames(KIRC_T_tpm),
+  Group = NA
+)
+KIRC_batch_RASD1$Group = ifelse(KIRC_batch_RASD1$Sample %in% high_expression_samples,"high","low")
+table(KIRC_batch_RASD1$Group)
+rownames(KIRC_batch_RASD1)=KIRC_batch_RASD1$Sample
+
+# ################################################矫正参数
+# significant_FABP7_drugs <- significant_FABP7_results %>%
+#   arrange(p_value) %>%
+#   filter(p_value < 0.01)
+# 
+# significant_FABP7_drugs <- significant_FABP7_results %>%
+#   mutate(p_adj = p.adjust(p_value, method = "fdr")) %>%  # FDR校正
+#   filter(p_adj < 0.05)  # 使用校正后阈值
+#####################################################肿瘤和正常组之间的药物显著性差异
+result_all <- result_all[rownames(KIRC_batch), ]
+result_all$type <- KIRC_batch$type
+significant_all_results <- data.frame(Drug = character(), p_value = numeric(), stringsAsFactors = FALSE)
+# 对每种药物进行非参数检验
+for (drug in colnames(result_all)[-ncol(result_all)]) {
+  group1 <- result_all[result_all$type == "KIRC_N", drug]
+  group2 <- result_all[result_all$type == "KIRC_T", drug]
+  
+  wilcox_test_result <- wilcox.test(group1, group2)
+  significant_all_results <- rbind(significant_all_results, 
+                                   data.frame(Drug = drug, p_value = wilcox_test_result$p.value))
+}
+
+# significant_all_drugs <- significant_all_results %>%
+#   arrange(p_value) %>%
+#   filter(p_value < 0.01)
+#按p值排序，挑选显著性差异大的药物
+
+significant_all_drugs <- significant_all_results %>%
+  mutate(p_adj = p.adjust(p_value, method = "fdr")) %>%  # FDR校正
+  filter(p_adj < 0.05)  # 使用校正后阈值
+
+
+#####################################################FABP7表达量分组之间的药物显著性差异
+result_tumor <- result_tumor[rownames(KIRC_batch_FABP7), ]
+result_tumor$type <- KIRC_batch_FABP7$Group
+significant_FABP7_results <- data.frame(Drug = character(), p_value = numeric(), stringsAsFactors = FALSE)
+
+
+# 对每种药物进行非参数检验
+for (drug in colnames(result_tumor)[-ncol(result_tumor)]) {
+  group1 <- result_tumor[result_tumor$type == "low", drug]
+  group2 <- result_tumor[result_tumor$type == "high", drug]
+  
+  wilcox_test_result <- wilcox.test(group1, group2)
+  significant_FABP7_results <- rbind(significant_FABP7_results, 
+                                     data.frame(Drug = drug, p_value = wilcox_test_result$p.value))
+}
+# 按p值排序，挑选显著性差异大的药物
+# significant_FABP7_drugs <- significant_FABP7_results %>%
+#   arrange(p_value) %>%
+#   filter(p_value < 0.01)
+significant_FABP7_drugs <- significant_FABP7_results %>%
+  mutate(p_adj = p.adjust(p_value, method = "fdr")) %>%  # FDR校正
+  filter(p_adj < 0.05)  # 使用校正后阈值
+
+#####################################################RASD1表达量分组之间的药物显著性差异
+#result_tumor=read.csv("C:/Users/21024/OneDrive/桌面/ccRCC_all/药敏分析/final_result/result_tumor/calcPhenotype_Output/DrugPredictions.csv",row.names = 1)
+# result_tumor=na.omit(result_tumor)
+# result_drug=colnames(result_all)
+
+result_tumor1 <- result_tumor[rownames(KIRC_batch_RASD1), ]
+result_tumor1$type <- KIRC_batch_RASD1$Group
+significant_RASD1_results <- data.frame(Drug = character(), p_value = numeric(), stringsAsFactors = FALSE)
+# 对每种药物进行非参数检验
+for (drug in colnames(result_tumor1)[-ncol(result_tumor1)]) {
+  group1 <- result_tumor1[result_tumor1$type == "low", drug]
+  group2 <- result_tumor1[result_tumor1$type == "high", drug]
+  
+  wilcox_test_result <- wilcox.test(group1, group2)
+  significant_RASD1_results <- rbind(significant_RASD1_results, 
+                                     data.frame(Drug = drug, p_value = wilcox_test_result$p.value))
+}
+# significant_RASD1_drugs <- significant_RASD1_results %>%
+#   arrange(p_value) %>%
+#   filter(p_value < 0.01)
+# 按p值排序，挑选显著性差异大的药物
+significant_RASD1_drugs <- significant_RASD1_results %>%
+  mutate(p_adj = p.adjust(p_value, method = "fdr")) %>%  # FDR校正
+  filter(p_adj < 0.05)  # 使用校正后阈值
+
+
+
+intersection1=intersect(significant_FABP7_drugs$Drug,significant_all_drugs$Drug)
+intersection2=intersect(significant_RASD1_drugs$Drug,significant_all_drugs$Drug)
+intersection_final=intersect(intersection1,intersection2)
+intersection1
+[1] "Camptothecin_1003"       "Vinblastine_1004"        "Olaparib_1017"           "KU.55933_1030"          
+[5] "Staurosporine_1034"      "NU7441_1038"             "ZM447439_1050"           "Alisertib_1051"         
+[9] "RO.3306_1052"            "MK.2206_1053"            "Palbociclib_1054"        "Dactolisib_1057"        
+[13] "Pictilisib_1058"         "AZD8055_1059"            "PD0325901_1060"          "Obatoclax.Mesylate_1068"
+[17] "X5.Fluorouracil_1073"    "Paclitaxel_1080"         "Rapamycin_1084"          "Irinotecan_1088"        
+[21] "Tozasertib_1096"         "Erlotinib_1168"          "Niraparib_1177"          "Dinaciclib_1180"        
+[25] "Gemcitabine_1190"        "Bortezomib_1191"         "GSK269962A_1192"         "YK.4.279_1239"          
+[29] "Daporinad_1248"          "BMS.345541_1249"         "AZ960_1250"              "Talazoparib_1259"       
+[33] "Trametinib_1372"         "Pevonedistat_1529"       "LCL161_1557"             "Luminespib_1559"        
+[37] "Alpelisib_1560"          "SCH772984_1564"          "VE.822_1613"             "AZD5582_1617"           
+[41] "GSK2606414_1618"         "I.BET.762_1624"          "OTX015_1626"             "Entospletinib_1630"     
+[45] "IGF1R_3801_1738"         "JAK_8517_1739"           "Acetalax_1804"           "Topotecan_1808"         
+[49] "Teniposide_1809"         "Mitoxantrone_1810"       "Fulvestrant_1816"        "Docetaxel_1819"         
+[53] "MG.132_1862"             "Buparlisib_1873"         "Ulixertinib_1908"        "AZD5363_1916"           
+[57] "GNE.317_1926"            "Foretinib_2040"          "Pyridostatin_2044"       "AMG.319_2045"           
+[61] "Vinorelbine_2048"        "VX.11e_2096"             "Uprosertib_2106"         "AZ6102_2109"            
+[65] "AZD6482_2169"            "BMS.754807_2171"         "JQ1_2172"    
+intersection2
+[1] "Camptothecin_1003"             "Cisplatin_1005"                "Gefitinib_1010"               
+[4] "Navitoclax_1011"               "Vorinostat_1012"               "Olaparib_1017"                
+[7] "AZD7762_1022"                  "Staurosporine_1034"            "NU7441_1038"                  
+[10] "Mirin_1048"                    "ZM447439_1050"                 "Alisertib_1051"               
+[13] "Palbociclib_1054"              "Dactolisib_1057"               "Pictilisib_1058"              
+[16] "PD0325901_1060"                "Obatoclax.Mesylate_1068"       "X5.Fluorouracil_1073"         
+[19] "Rapamycin_1084"                "Irinotecan_1088"               "Oxaliplatin_1089"             
+[22] "Tozasertib_1096"               "PF.4708671_1129"               "PRIMA.1MET_1131"              
+[25] "Erlotinib_1168"                "Niraparib_1177"                "Dinaciclib_1180"              
+[28] "GSK269962A_1192"               "SB505124_1194"                 "YK.4.279_1239"                
+[31] "Daporinad_1248"                "BMS.345541_1249"               "Talazoparib_1259"             
+[34] "XAV939_1268"                   "Trametinib_1372"               "Dabrafenib_1373"              
+[37] "IAP_5620_1428"                 "AZD2014_1441"                  "AZD1332_1463"                 
+[40] "Ruxolitinib_1507"              "Pevonedistat_1529"             "Uprosertib_1553"              
+[43] "LCL161_1557"                   "Lapatinib_1558"                "Luminespib_1559"              
+[46] "Alpelisib_1560"                "Taselisib_1561"                "SCH772984_1564"               
+[49] "Entinostat_1593"               "VE.822_1613"                   "CZC24832_1615"                
+[52] "AZD5582_1617"                  "GSK2606414_1618"               "PCI.34051_1621"               
+[55] "Wnt.C59_1622"                  "I.BET.762_1624"                "OTX015_1626"                  
+[58] "Entospletinib_1630"            "AZD5153_1706"                  "Eg5_9814_1712"                
+[61] "ERK_2440_1713"                 "Selumetinib_1736"              "IGF1R_3801_1738"              
+[64] "JAK_8517_1739"                 "AZD4547_1786"                  "Ibrutinib_1799"               
+[67] "Acetalax_1804"                 "Topotecan_1808"                "Teniposide_1809"              
+[70] "Mitoxantrone_1810"             "Dactinomycin_1811"             "Fulvestrant_1816"             
+[73] "Vincristine_1818"              "Docetaxel_1819"                "Dihydrorotenone_1827"         
+[76] "Gallibiscoquinazole_1830"      "KRAS..G12C..Inhibitor.12_1855" "MG.132_1862"                  
+[79] "Buparlisib_1873"               "Ulixertinib_1908"              "Venetoclax_1909"              
+[82] "ABT737_1910"                   "AGI.5198_1913"                 "AZD3759_1915"                 
+[85] "AZD6738_1917"                  "AZD8186_1918"                  "Osimertinib_1919"             
+[88] "Telomerase.Inhibitor.IX_1930"  "Savolitinib_1936"              "WIKI4_1940"                   
+[91] "MIM1_1996"                     "WEHI.539_1997"                 "BPD.00008900_1998"            
+[94] "Foretinib_2040"                "Pyridostatin_2044"             "AMG.319_2045"                 
+[97] "MK.8776_2046"                  "Vinorelbine_2048"              "VX.11e_2096"                  
+[100] "AZ6102_2109"                   "BMS.754807_2171"               "JQ1_2172"  
+intersection_final
+
+
+# ####
+# Rapamycin (雷帕霉素)
+# 
+# 作用机制: mTOR抑制剂。
+# 
+# 适应症: 用于晚期肾细胞癌（RCC），尤其是对传统治疗无效的患者。
+# 
+# Foretinib
+# 
+# 作用机制: 多靶点激酶抑制剂（如MET、VEGFR）。
+# 
+# 适应症: 在临床试验中用于治疗转移性肾细胞癌，尤其是与MET信号通路异常相关的病例。
+# 
+# BMS-754807
+# 
+# 作用机制: IGF-1R抑制剂。
+# 
+# 适应症: 研究显示其在肾癌中可能通过抑制IGF-1R信号通路发挥作用，但尚处于试验阶段。
+# 
+# Dactolisib
+# 
+# 作用机制: PI3K/mTOR双重抑制剂。
+# 
+# 适应症: 在肾癌的临床前研究中显示出潜力，但尚未广泛用于临床。
+#"BMS.754807_2171","Foretinib_2040","Dactolisib_1057","Rapamycin_1084"
+final_drug=c("BMS.754807_2171","Foretinib_2040","Rapamycin_1084")
+
+###药物可视化
+library(tidyr)
+# result_tumor$type
+# colnames(result_tumor)
+# # 首先将数据从宽格式转为长格式
+# result_tumor_long <- pivot_longer(result_tumor, 
+#                                   cols = c(final_drug),  # 指定要绘制的药物列
+#                                   names_to = "drug", 
+#                                   values_to = "value")
+# colnames(result_tumor_long)
+# # 然后绘制分面箱线图
+# ggplot(result_tumor_long, aes(x = type, y = value, fill = type)) +
+#   geom_boxplot() +
+#   facet_wrap(~drug, scales = "free_y") +  # 每个药物单独一个y轴
+#   labs(title = "不同药物在各组中的分布", 
+#        x = "分组", y = "浓度/表达量") +
+#   theme_minimal()
+# 
+# ggplot(result_tumor_long, aes(x = type, y = value, fill = type)) +
+#   geom_boxplot() +
+#   facet_wrap(~drug, scales = "free_y") +
+#   stat_compare_means(method = "wilcox.test", label = "p.format") +  # 添加显著性标注
+#   labs(title = "不同药物在各组中的分布", 
+#        x = "分组", y = "浓度/表达量") +
+#   theme_minimal()
+#[1] "AZD1332_1463"      "BIBR.1532_2043"    "ABT737_1910"       "Camptothecin_1003" "Pyridostatin_2044" "WZ4003_1614"      
+#[7] "JAK_8517_1739"
+library(tidyr)
+library(ggplot2)
+library(ggpubr)
+final_drug=c("Foretinib_2040","Rapamycin_1084")
+# 数据转为长格式
+result_tumor_long <- pivot_longer(result_tumor1, 
+                                  cols = c(final_drug),  
+                                  names_to = "drug", 
+                                  values_to = "value")
+
+#AZD1332 :TrkA、TrkB、TrkC(神经酪氨酸激酶)受体抑制剂
+#BIBR.1532_2043 :端粒酶抑制剂(DNA复制相关)
+#ABT737_1910 :抑制Bcl-2和Bcl-xL(调节线粒体凋亡)的小分子药物
+#Camptothecin :拓扑异构酶抑制剂(DNA复制相关)
+#Pyridostatin :G-四链体小分子稳定剂(DNA扩增与基因表达)
+#WZ4003 :NUAK1 和 NUAK2(与神经相关) 的选择性抑制剂
+####JAK_8517 :JAK/STAT 通路(代谢相关)的抑制剂
+library(dplyr)
+library(ggplot2)
+# 美化版图形
+# 标记离群点
+result_tumor_long <- result_tumor_long %>%
+  group_by(type, drug) %>%  # 按分组和药物计算
+  mutate(
+    Q1 = quantile(value, 0.25, na.rm = TRUE),
+    Q3 = quantile(value, 0.75, na.rm = TRUE),
+    IQR = Q3 - Q1,
+    is_outlier = value < (Q1 - 1.5*IQR) | value > (Q3 + 1.5*IQR)
+  )
+
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+
+# 去掉离群点的数据
+filtered_data <- result_tumor_long %>%
+  filter(!is_outlier)
+
+# 手动计算每组的 n 和最大值位置
+count_data <- filtered_data %>%
+  group_by(drug, type) %>%
+  summarise(n = n(), y_pos = max(value, na.rm = TRUE) * 1.05, .groups = "drop")  # 略高于最大值
+
+# 绘图
+ggplot(filtered_data, aes(x = type, y = value, fill = type)) +
+  geom_boxplot(outlier.shape = NA, width = 0.6, alpha = 0.8) +
+  geom_jitter(aes(color = type), width = 0.2, size = 1.2, alpha = 0.6, show.legend = FALSE) +
+  stat_compare_means(method = "wilcox.test", 
+                     comparisons = list(c("high", "low")), 
+                     label = "p.signif", size = 5) +
+  geom_text(data = count_data,
+            aes(x = type, y = y_pos, label = paste0("n = ", n)),
+            inherit.aes = FALSE,
+            size = 4, vjust = 0) +
+  facet_wrap(~drug, scales = "free_y") +
+  labs(title = "",
+      x = "",   # 这里是X轴的名字
+      y = "Estimated IC50"  # 这里是Y轴的名
+      ) + theme_minimal()
+
+getwd()
+result_tumor$type
+FABP7_table=result_tumor[,c("Foretinib_2040","Rapamycin_1084","type")]
+write.csv(FABP7_table,file = "./final_result/FABP7_table.csv")
+RASD1_table=result_tumor1[,c("Foretinib_2040","Rapamycin_1084","type")]
+write.csv(RASD1_table,file = "./final_result/RASD1_table.csv")
